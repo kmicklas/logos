@@ -7,22 +7,17 @@ struct RefSource<'s, S: ?Sized + Source>(&'s S);
 
 impl<'s, S: ?Sized + Source> Source for RefSource<'s, S> {
     type Slice<'a> = S::Slice<'a> where 's: 'a;
+    type Chunk<'a, const N: usize> = S::Chunk<'a, N> where 's: 'a;
 
     fn len(&self) -> usize {
         self.0.len()
     }
 
-    fn read<'a, Chunk>(&'a self, offset: usize) -> Option<Chunk>
-    where
-        Chunk: logos::source::Chunk<'a>,
-    {
+    fn read<const N: usize>(&self, offset: usize) -> Option<Self::Chunk<'_, N>> {
         self.0.read(offset)
     }
 
-    unsafe fn read_unchecked<'a, Chunk>(&'a self, offset: usize) -> Chunk
-    where
-        Chunk: logos::source::Chunk<'a>,
-    {
+    unsafe fn read_unchecked<const N: usize>(&self, offset: usize) -> Self::Chunk<'_, N> {
         self.0.read_unchecked(offset)
     }
 

@@ -4,6 +4,7 @@
 //! * `Source` - implemented by default for `&str` and `&[u8]`, used by the `Lexer`.
 //! * `Slice` - slices of `Source`, returned by `Lexer::slice`.
 
+use core::ops::Deref;
 use std::fmt::Debug;
 use std::ops::Range;
 
@@ -16,6 +17,11 @@ use std::ops::Range;
 pub trait Source {
     /// A type this `Source` can be sliced into.
     type Slice<'a>: PartialEq + Eq + Debug
+    where
+        Self: 'a;
+
+    /// TODO
+    type Chunk<'a, const N: usize>: Deref<Target = [u8; N]>
     where
         Self: 'a;
 
@@ -39,18 +45,14 @@ pub trait Source {
     /// assert_eq!(foo.read::<&[u8; 4]>(0), None); // Out of bounds
     /// assert_eq!(foo.read::<&[u8; 2]>(2), None); // Out of bounds
     /// ```
-    fn read<'a, Chunk>(&'a self, offset: usize) -> Option<Chunk>
-    where
-        Chunk: self::Chunk<'a>;
+    fn read<const N: usize>(&self, offset: usize) -> Option<Self::Chunk<'_, N>>;
 
     /// Read a chunk of bytes into an array without doing bounds checks.
     ///
     /// # Safety
     ///
     /// Offset should not exceed bounds.
-    unsafe fn read_unchecked<'a, Chunk>(&'a self, offset: usize) -> Chunk
-    where
-        Chunk: self::Chunk<'a>;
+    unsafe fn read_unchecked<const N: usize>(&self, offset: usize) -> Self::Chunk<'_, N>;
 
     /// Get a slice of the source at given range. This is analogous to
     /// `slice::get(range)`.
@@ -100,17 +102,16 @@ pub trait Source {
 impl Source for str {
     type Slice<'a> = &'a str;
 
+    type Chunk<'a, const N: usize> = &'a [u8; N];
+
     #[inline]
     fn len(&self) -> usize {
         self.len()
     }
 
     #[inline]
-    fn read<'a, Chunk>(&'a self, offset: usize) -> Option<Chunk>
-    where
-        Chunk: self::Chunk<'a>,
-    {
-        if offset + (Chunk::SIZE - 1) < self.len() {
+    fn read<'a, const N: usize>(&'a self, offset: usize) -> Option<Self::Chunk<'a, N>> {
+        if offset + (N - 1) < self.len() {
             // # Safety: we just performed a bound check.
             Some(unsafe { Chunk::from_ptr(self.as_ptr().add(offset)) })
         } else {
@@ -119,10 +120,7 @@ impl Source for str {
     }
 
     #[inline]
-    unsafe fn read_unchecked<'a, Chunk>(&'a self, offset: usize) -> Chunk
-    where
-        Chunk: self::Chunk<'a>,
-    {
+    unsafe fn read_unchecked<'a, const N: usize>(&'a self, offset: usize) -> Self::Chunk<'a, N> {
         Chunk::from_ptr(self.as_ptr().add(offset))
     }
 
@@ -161,17 +159,16 @@ impl Source for str {
 impl Source for [u8] {
     type Slice<'a> = &'a [u8];
 
+    type Chunk<'a, const N: usize> = &'a [u8; N];
+
     #[inline]
     fn len(&self) -> usize {
         self.len()
     }
 
     #[inline]
-    fn read<'a, Chunk>(&'a self, offset: usize) -> Option<Chunk>
-    where
-        Chunk: self::Chunk<'a>,
-    {
-        if offset + (Chunk::SIZE - 1) < self.len() {
+    fn read<'a, const N: usize>(&'a self, offset: usize) -> Option<Self::Chunk<'a, N>> {
+        if offset + (N - 1) < self.len() {
             Some(unsafe { Chunk::from_ptr(self.as_ptr().add(offset)) })
         } else {
             None
@@ -179,10 +176,7 @@ impl Source for [u8] {
     }
 
     #[inline]
-    unsafe fn read_unchecked<'a, Chunk>(&'a self, offset: usize) -> Chunk
-    where
-        Chunk: self::Chunk<'a>,
-    {
+    unsafe fn read_unchecked<'a, const N: usize>(&'a self, offset: usize) -> Self::Chunk<'a, N> {
         Chunk::from_ptr(self.as_ptr().add(offset))
     }
 
@@ -212,7 +206,7 @@ impl Source for [u8] {
 /// A fixed, statically sized chunk of data that can be read from the `Source`.
 ///
 /// This is implemented for `u8`, as well as byte arrays `&[u8; 1]` to `&[u8; 32]`.
-pub trait Chunk<'source>: Sized + Copy + PartialEq + Eq {
+trait Chunk<'source>: Sized + Copy + PartialEq + Eq {
     /// Size of the chunk being accessed in bytes.
     const SIZE: usize;
 

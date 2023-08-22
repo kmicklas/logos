@@ -177,7 +177,7 @@ impl<'a> Generator<'a> {
             macro_rules! _fast_loop {
                 ($lex:ident, $test:ident, $miss:expr) => {
                     // Do one bounds check for multiple bytes till EOF
-                    while let Some(arr) = $lex.read::<&[u8; 16]>() {
+                    while let Some(arr) = $lex.read::<16>() {
                         if $test(arr[0])  { if $test(arr[1])  { if $test(arr[2])  { if $test(arr[3]) {
                         if $test(arr[4])  { if $test(arr[5])  { if $test(arr[6])  { if $test(arr[7]) {
                         if $test(arr[8])  { if $test(arr[9])  { if $test(arr[10]) { if $test(arr[11]) {
@@ -195,7 +195,7 @@ impl<'a> Generator<'a> {
                         return $miss;
                     }
 
-                    while $lex.test($test) {
+                    while $lex.test_byte($test) {
                         $lex.bump_unchecked(1);
                     }
 

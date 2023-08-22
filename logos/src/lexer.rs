@@ -1,6 +1,6 @@
 use super::internal::LexerInternal;
 use super::Logos;
-use crate::source::{self, Source};
+use crate::source::Source;
 
 use core::fmt::{self, Debug};
 use core::mem::ManuallyDrop;
@@ -283,54 +283,67 @@ where
     type Token = Token;
 
     /// Read a `Chunk` at current position of the `Lexer`. If end
-    /// of the `Source` has been reached, this will return `0`.
+    /// of the `Source` has been reached, this will return `None`.
     #[inline]
-    fn read<Chunk>(&self) -> Option<Chunk>
-    where
-        Chunk: source::Chunk<'source>,
-    {
+    fn read<const N: usize>(
+        &self,
+    ) -> Option<<<Token as Logos<'source>>::Source as Source>::Chunk<'source, N>> {
         self.source.read(self.token_end)
+    }
+
+    /// Read a byte at current position of the `Lexer`. If end
+    /// of the `Source` has been reached, this will return `None`.
+    #[inline]
+    fn read_byte(&self) -> Option<u8> {
+        self.read::<1>().map(|chunk| chunk[0])
     }
 
     /// Read a `Chunk` at a position offset by `n`.
     #[inline]
-    fn read_at<Chunk>(&self, n: usize) -> Option<Chunk>
-    where
-        Chunk: source::Chunk<'source>,
-    {
+    fn read_at<const N: usize>(
+        &self,
+        n: usize,
+    ) -> Option<<<Token as Logos<'source>>::Source as Source>::Chunk<'source, N>> {
         self.source.read(self.token_end + n)
     }
 
+    /// Read a byte at a position offset by `n`.
     #[inline]
-    unsafe fn read_unchecked<Chunk>(&self, n: usize) -> Chunk
-    where
-        Chunk: source::Chunk<'source>,
-    {
+    fn read_byte_at(&self, n: usize) -> Option<u8> {
+        self.read_at::<1>(n).map(|chunk| chunk[0])
+    }
+
+    #[inline]
+    unsafe fn read_unchecked<const N: usize>(
+        &self,
+        n: usize,
+    ) -> <<Token as Logos<'source>>::Source as Source>::Chunk<'source, N> {
         self.source.read_unchecked(self.token_end + n)
+    }
+
+    #[inline]
+    unsafe fn read_byte_unchecked(&self, n: usize) -> u8 {
+        self.source.read_unchecked::<1>(n)[0]
     }
 
     /// Test a chunk at current position with a closure.
     #[inline]
-    fn test<T, F>(&self, test: F) -> bool
-    where
-        T: source::Chunk<'source>,
-        F: FnOnce(T) -> bool,
-    {
-        match self.source.read::<T>(self.token_end) {
-            Some(chunk) => test(chunk),
+    fn test<const N: usize, F: FnOnce(&[u8; N]) -> bool>(&self, test: F) -> bool {
+        match self.source.read::<N>(self.token_end) {
+            Some(chunk) => test(chunk.deref()),
             None => false,
         }
     }
 
+    fn test_byte<F: FnOnce(u8) -> bool>(&self, test: F) -> bool {
+        self.test::<1, _>(|chunk| test(chunk[0]))
+    }
+
     /// Test a chunk at current position offset by `n` with a closure.
     #[inline]
-    fn test_at<T, F>(&self, n: usize, test: F) -> bool
-    where
-        T: source::Chunk<'source>,
-        F: FnOnce(T) -> bool,
-    {
-        match self.source.read::<T>(self.token_end + n) {
-            Some(chunk) => test(chunk),
+    fn test_at<const N: usize, F: FnOnce(&[u8; N]) -> bool>(&self, n: usize, test: F) -> bool {
+        match self.source.read::<N>(self.token_end + n) {
+            Some(chunk) => test(chunk.deref()),
             None => false,
         }
     }

@@ -66,12 +66,12 @@ impl Context {
             0 => {
                 self.advance(1);
 
-                quote!(lex.read_unchecked::<u8>(#at))
+                quote!(lex.read_byte_unchecked(#at))
             }
             l => {
                 self.advance(l);
 
-                quote!(lex.read_unchecked::<&[u8; #l]>(#at))
+                quote!(lex.read_unchecked::<#l>(#at))
             }
         }
     }
@@ -80,10 +80,10 @@ impl Context {
         self.available = len;
 
         match (self.at, len) {
-            (0, 0) => quote!(lex.read::<u8>()),
-            (a, 0) => quote!(lex.read_at::<u8>(#a)),
-            (0, l) => quote!(lex.read::<&[u8; #l]>()),
-            (a, l) => quote!(lex.read_at::<&[u8; #l]>(#a)),
+            (0, 0) => quote!(lex.read_byte()),
+            (a, 0) => quote!(lex.read_byte_at(#a)),
+            (0, l) => quote!(lex.read::<#l>()),
+            (a, l) => quote!(lex.read_at::<#l>(#a)),
         }
     }
 

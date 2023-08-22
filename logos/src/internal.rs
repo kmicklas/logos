@@ -1,5 +1,4 @@
-use crate::source::Chunk;
-use crate::{Filter, FilterResult, Lexer, Logos, Skip};
+use crate::{Filter, FilterResult, Lexer, Logos, Skip, Source};
 
 /// Trait used by the functions contained in the `Lexicon`.
 ///
@@ -11,19 +10,35 @@ pub trait LexerInternal<'source> {
     type Token: Logos<'source>;
 
     /// Read a chunk at current position.
-    fn read<T: Chunk<'source>>(&self) -> Option<T>;
+    fn read<const N: usize>(
+        &self,
+    ) -> Option<<<Self::Token as Logos<'source>>::Source as Source>::Chunk<'source, N>>;
+
+    fn read_byte(&self) -> Option<u8>;
 
     /// Read a chunk at current position, offset by `n`.
-    fn read_at<T: Chunk<'source>>(&self, n: usize) -> Option<T>;
+    fn read_at<const N: usize>(
+        &self,
+        n: usize,
+    ) -> Option<<<Self::Token as Logos<'source>>::Source as Source>::Chunk<'source, N>>;
+
+    fn read_byte_at(&self, n: usize) -> Option<u8>;
 
     /// Unchecked read a chunk at current position, offset by `n`.
-    unsafe fn read_unchecked<T: Chunk<'source>>(&self, n: usize) -> T;
+    unsafe fn read_unchecked<const N: usize>(
+        &self,
+        n: usize,
+    ) -> <<Self::Token as Logos<'source>>::Source as Source>::Chunk<'source, N>;
+
+    unsafe fn read_byte_unchecked(&self, n: usize) -> u8;
 
     /// Test a chunk at current position with a closure.
-    fn test<T: Chunk<'source>, F: FnOnce(T) -> bool>(&self, test: F) -> bool;
+    fn test<const N: usize, F: FnOnce(&[u8; N]) -> bool>(&self, test: F) -> bool;
+
+    fn test_byte<F: FnOnce(u8) -> bool>(&self, test: F) -> bool;
 
     /// Test a chunk at current position offset by `n` with a closure.
-    fn test_at<T: Chunk<'source>, F: FnOnce(T) -> bool>(&self, n: usize, test: F) -> bool;
+    fn test_at<const N: usize, F: FnOnce(&[u8; N]) -> bool>(&self, n: usize, test: F) -> bool;
 
     /// Bump the position by `size`.
     fn bump_unchecked(&mut self, size: usize);
